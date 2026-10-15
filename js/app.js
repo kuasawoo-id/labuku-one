@@ -85,6 +85,7 @@ const S = {
   token: null, kuaToken: null, me: null, isAdmin: false, kua: {},
   tahun: [], bd: [], lap: [], peg: [], tahunId: null,
   page: null, open: {}, f: { tw: '', st: '', q: '' }, tf: { tw: '', st: 'belum' }, skpMode: 'saya',
+  skpPer: null, skpLinks: {}, skpLoaded: {}, tpl: [], tplFields: [],
   draft: null, pending: {}, pinFor: null, pinVal: '', pinBusy: false
 };
 
@@ -212,6 +213,13 @@ async function copyText(text, btn) {
     const o = btn.innerHTML;
     btn.classList.add('done'); btn.innerHTML = '<i class="bi bi-check2"></i><span>Tersalin</span>';
     setTimeout(() => { btn.classList.remove('done'); btn.innerHTML = o; }, 1400);
+  } else if (btn && (btn.classList.contains('cf') || btn.classList.contains('tok'))) {
+    $$('.cf.done, .tok.done').forEach(x => x.classList.remove('done'));
+    btn.classList.add('done');
+    const ic = btn.querySelector('.cf-ic');
+    if (ic) { ic.innerHTML = '<i class="bi bi-check2"></i> Tersalin'; setTimeout(() => { ic.innerHTML = '<i class="bi bi-clipboard"></i> Salin'; }, 1600); }
+    setTimeout(() => btn.classList.remove('done'), 1600);
+    toast('Tersalin — tinggal tempel di e-Kinerja');
   } else toast('Disalin ke clipboard');
 }
 function empty(icon, title, sub, extra) {
@@ -266,11 +274,12 @@ function sizeKB(list) { return Math.round(list.reduce((s, d) => s + d.length * 0
 // ── 5. Data lokal (optimistic) ──────────────────────────────
 function persist() {
   if (!S.me) return;
-  store.set('boot_' + S.me.ID, { me: S.me, isAdmin: S.isAdmin, kua: S.kua, tahun: S.tahun, bd: S.bd, lap: S.lap, peg: S.peg, t: Date.now() });
+  store.set('boot_' + S.me.ID, { me: S.me, isAdmin: S.isAdmin, kua: S.kua, tahun: S.tahun, bd: S.bd, lap: S.lap, peg: S.peg, tpl: S.tpl, tplFields: S.tplFields, t: Date.now() });
 }
 function applyBoot(b) {
   S.me = b.me; S.isAdmin = !!b.isAdmin; S.kua = b.kua || {};
   S.tahun = b.tahun || []; S.bd = b.bd || []; S.lap = b.lap || []; S.peg = b.peg || [];
+  S.tpl = b.tpl || []; S.tplFields = b.tplFields || [];
   if (!S.tahunId || !tahunById(S.tahunId)) {
     const a = S.tahun.find(t => t.Aktif === 'Y') || S.tahun.slice().sort((x, y) => y.Tahun.localeCompare(x.Tahun))[0];
     S.tahunId = a ? a.ID : null;
@@ -495,31 +504,31 @@ function logout(forget) {
 // ── 8. App shell & router ───────────────────────────────────
 const NAV = [
   { id: 'beranda', icon: 'house', label: 'Beranda', short: 'Beranda' },
-  { id: 'laporan', icon: 'journal-text', label: 'Laporan Saya', short: 'Laporan' },
+  { id: 'laporan', icon: 'journal-text', label: 'Catatan Kerja', short: 'Catatan' },
   { id: 'realisasi', icon: 'bar-chart', label: 'Realisasi', short: 'Realisasi' },
   { id: 'skp', icon: 'layout-split', label: 'Laporan SKP', short: 'SKP' },
   { id: 'bd', icon: 'bullseye', label: 'Bukti Dukung & Target', short: 'Target' },
   { id: 'tim', icon: 'people', label: 'Tim & Klaim', short: 'Tim', admin: true },
   { id: 'pegawai', icon: 'person-badge', label: 'Pegawai', short: 'Pegawai', admin: true },
-  { id: 'kua', icon: 'building-gear', label: 'Pengaturan KUA', short: 'KUA', admin: true },
-  { id: 'log', icon: 'clock-history', label: 'Log Aktivitas', short: 'Log', admin: true },
-  { id: 'akun', icon: 'person-circle', label: 'Akun', short: 'Akun' }
+  { id: 'pengaturan', icon: 'gear', label: 'Pengaturan', short: 'Pengaturan' }
 ];
 const navDef = id => NAV.find(n => n.id === id);
+const isDark = () => document.documentElement.dataset.theme === 'dark';
+function themeBtn() {
+  return `<button class="side-act" data-act="toggleTheme" title="Mode gelap"><i class="bi bi-${isDark() ? 'sun' : 'moon-stars'}"></i><span>${isDark() ? 'Mode terang' : 'Mode gelap'}</span></button>`;
+}
 
 function tahunChip() { return `<button class="chip chip-sm" data-act="pickTahun"><i class="bi bi-calendar3"></i> ${esc(tahunLabel())} <i class="bi bi-chevron-down"></i></button>`; }
 const PAGES = {
   beranda: { title: 'Beranda', render: renderBeranda, actions: tahunChip },
-  laporan: { title: 'Laporan Saya', render: renderLaporan, actions: tahunChip },
+  laporan: { title: 'Catatan Kerja', render: renderLaporan, actions: tahunChip },
   form: { title: () => (S.draft && S.draft.isEdit ? 'Ubah Laporan' : 'Laporan Kegiatan'), render: renderForm, parent: 'laporan' },
-  realisasi: { title: 'Realisasi', render: renderRealisasi, actions: tahunChip, parent: 'akun' },
-  skp: { title: 'Laporan SKP', render: renderSKP, actions: tahunChip, parent: () => (S.isAdmin ? 'akun' : null) },
-  bd: { title: 'Bukti Dukung & Target', render: renderBD, actions: tahunChip, parent: 'akun' },
-  akun: { title: 'Akun', render: renderAkun },
+  realisasi: { title: 'Realisasi', render: renderRealisasi, actions: tahunChip, parent: 'pengaturan' },
+  skp: { title: 'Laporan SKP', render: renderSKP, actions: tahunChip, parent: () => (S.isAdmin ? 'pengaturan' : null) },
+  bd: { title: 'Bukti Dukung & Target', render: renderBD, actions: tahunChip, parent: 'pengaturan' },
   tim: { title: 'Tim & Klaim', render: renderTim, actions: tahunChip, admin: true },
-  pegawai: { title: 'Pegawai', render: renderPegawai, admin: true, parent: 'akun' },
-  kua: { title: 'Pengaturan KUA', render: renderKua, admin: true, parent: 'akun' },
-  log: { title: 'Log Aktivitas', render: renderLog, admin: true, parent: 'akun', actions: () => '<button class="icon-btn" data-act="logRefresh" aria-label="Muat ulang"><i class="bi bi-arrow-clockwise"></i></button>' }
+  pegawai: { title: 'Pegawai', render: renderPegawai, admin: true, parent: 'pengaturan' },
+  pengaturan: { title: 'Pengaturan', render: renderPengaturan }
 };
 const val = v => (typeof v === 'function' ? v() : v);
 
@@ -544,15 +553,19 @@ function buildNav() {
   const btn = n => `<button class="sn" data-nav="${n.id}" data-act="nav" title="${esc(n.label)}"><i class="bi bi-${n.icon}"></i><span class="l">${esc(n.label)}</span><span class="s">${esc(n.short)}</span></button>`;
   $('#nav-side').innerHTML = `
     <div class="side-brand"><div class="logo sm">L1</div><div class="t"><b>LABUKU One</b><small>KUA ${esc(S.kua.nama || '')}</small></div></div>
-    <button class="side-new" data-act="newMenu"><i class="bi bi-plus-lg"></i><span>Tambah</span></button>
+    <button class="side-new" data-act="newMenu"><i class="bi bi-plus-lg"></i><span>Catat</span></button>
     <div class="side-items">
-      ${items.filter(n => !n.admin && n.id !== 'akun').map(btn).join('')}
+      ${items.filter(n => !n.admin && n.id !== 'pengaturan').map(btn).join('')}
       ${S.isAdmin ? '<div class="side-sec">Kepala KUA</div>' + items.filter(n => n.admin).map(btn).join('') : ''}
+      <div class="side-sec"></div>${btn(navDef('pengaturan'))}
     </div>
-    <button class="side-user" data-act="nav" data-nav="akun" title="Akun"><span class="avatar">${esc(initials(S.me.Nama))}</span><span class="t"><b>${esc(S.me.Nama)}</b><small>${esc(S.me.Jabatan || '')}</small></span></button>`;
+    <div class="side-foot">
+      <button class="side-user" data-act="nav" data-nav="pengaturan" title="Pengaturan"><span class="avatar">${esc(initials(S.me.Nama))}</span><span class="t"><b>${esc(S.me.Nama)}</b><small>${esc(S.me.Jabatan || '')}</small></span></button>
+      <div class="side-acts">${themeBtn()}<button class="side-act" data-act="logout" title="Keluar"><i class="bi bi-box-arrow-right"></i><span>Keluar</span></button></div>
+    </div>`;
   const fourth = S.isAdmin ? 'tim' : 'skp';
-  $('#nav-bottom').innerHTML = ['beranda', 'laporan', '+', fourth, 'akun'].map(id => {
-    if (id === '+') return '<div class="nb-wrap"><button class="nb-fab" data-act="newMenu" aria-label="Tambah hasil kerja"><i class="bi bi-plus-lg"></i></button></div>';
+  $('#nav-bottom').innerHTML = ['beranda', 'laporan', '+', fourth, 'pengaturan'].map(id => {
+    if (id === '+') return '<div class="nb-wrap"><button class="nb-fab" data-act="newMenu" aria-label="Catat hasil kerja"><i class="bi bi-plus-lg"></i></button></div>';
     const n = navDef(id);
     return `<button class="nb" data-bnav="${n.id}" data-act="nav" data-nav="${n.id}"><i class="bi bi-${n.icon}"></i><span>${esc(n.short)}</span></button>`;
   }).join('');
@@ -565,8 +578,8 @@ function go(page) {
   if (!sec) { sec = document.createElement('section'); sec.className = 'page'; sec.id = 'pg-' + page; $('#view').appendChild(sec); }
   $$('#view > .page').forEach(p => p.classList.toggle('on', p === sec));
   const sideKey = page === 'form' ? 'laporan' : page;
-  const bottomKeys = ['beranda', 'laporan', S.isAdmin ? 'tim' : 'skp', 'akun'];
-  const bottomKey = page === 'form' ? 'laporan' : bottomKeys.includes(page) ? page : 'akun';
+  const bottomKeys = ['beranda', 'laporan', S.isAdmin ? 'tim' : 'skp', 'pengaturan'];
+  const bottomKey = page === 'form' ? 'laporan' : bottomKeys.includes(page) ? page : 'pengaturan';
   $$('#nav-side [data-nav]').forEach(b => b.classList.toggle('on', b.dataset.nav === sideKey));
   $$('#nav-bottom [data-bnav]').forEach(b => b.classList.toggle('on', b.dataset.bnav === bottomKey));
   renderPage();
@@ -673,7 +686,7 @@ function renderLapList() {
   const filtered = S.f.q || S.f.tw || S.f.st;
   el.innerHTML = items.length
     ? `<div class="list-meta">${items.length} hasil kerja · tahun ${esc(tahunLabel())}</div><div class="list">${items.map(l => lapItem(l, l.ID === S.open.laporan)).join('')}</div>`
-    : `<div class="card">${empty('journal-x', filtered ? 'Tidak ada yang cocok' : 'Belum ada laporan', filtered ? 'Ubah filter atau kata kunci.' : 'Ketuk tombol + untuk menambah hasil kerja.', filtered ? '' : '<button class="btn btn-pri btn-sm" data-act="newMenu"><i class="bi bi-plus-lg"></i> Tambah</button>')}</div>`;
+    : `<div class="card">${empty('journal-x', filtered ? 'Tidak ada yang cocok' : 'Belum ada catatan kerja', filtered ? 'Ubah filter atau kata kunci.' : 'Ketuk tombol + untuk mencatat hasil kerja.', filtered ? '' : '<button class="btn btn-pri btn-sm" data-act="newMenu"><i class="bi bi-plus-lg"></i> Catat</button>')}</div>`;
 }
 function renderLapDetail() {
   const el = $('#lapDetail');
@@ -705,15 +718,16 @@ function lapDetailHtml(l) {
 }
 
 // ── 11. Form laporan kegiatan (3 langkah) ───────────────────
-const FORM_FIELDS = ['BuktiDukungID', 'TW', 'Tanggal', 'WaktuMulai', 'WaktuSelesai', 'Lokasi', 'Uraian', 'Realisasi', 'SumberData'];
+const FORM_FIELDS = ['BuktiDukungID', 'TW', 'Tanggal', 'WaktuMulai', 'WaktuSelesai', 'Lokasi', 'Uraian', 'Realisasi', 'SumberData', 'TemplateID'];
 async function startForm(l, step) {
   if (!l && !myBD().length) { needBD(); return; }
   const saved = !l ? store.get('formDraft') : null;
   const base = {};
   if (l) FORM_FIELDS.forEach(k => { base[k] = l[k] || ''; });
   else if (saved && saved.Uraian) Object.assign(base, saved);
-  else Object.assign(base, { BuktiDukungID: (myBD()[0] || {}).ID || '', TW: twOf(today()), Tanggal: today(), WaktuMulai: '', WaktuSelesai: '', Lokasi: '', Uraian: '', Realisasi: '', SumberData: '' });
+  else Object.assign(base, { BuktiDukungID: (myBD()[0] || {}).ID || '', TW: twOf(today()), Tanggal: today(), WaktuMulai: '', WaktuSelesai: '', Lokasi: '', Uraian: '', Realisasi: '', SumberData: '', TemplateID: store.get('lastTpl', '') });
   if (!bdById(base.BuktiDukungID) && myBD()[0]) base.BuktiDukungID = myBD()[0].ID;
+  if (base.TemplateID && !(S.tpl || []).some(t => t.ID === base.TemplateID)) base.TemplateID = '';
   S.draft = { ID: l ? l.ID : null, isEdit: !!l, step: step || 1, data: base, photos: [] };
   if (l) { const ph = await IDB.get('ph_' + l.ID); if (ph) S.draft.photos = ph; }
   if (!l && saved && saved.Uraian) toast('Isian sebelumnya dipulihkan.', 'warn');
@@ -738,6 +752,7 @@ function formStep1(el) {
     <div class="field"><label>Uraian kegiatan <span class="req">*</span></label><textarea class="inp" name="Uraian" rows="4" placeholder="Apa yang dilakukan, bersama siapa, hasilnya apa…" data-in="fd">${esc(x.Uraian)}</textarea></div>
     <div class="row2"><div class="field"><label>Realisasi <span class="req">*</span></label><input class="inp" name="Realisasi" value="${esc(x.Realisasi)}" placeholder="1 dokumen laporan" data-in="fd"></div>
       <div class="field"><label>Sumber data</label><input class="inp" name="SumberData" value="${esc(x.SumberData)}" placeholder="Arsip KUA, SIMKAH" data-in="fd"></div></div>
+    <div class="field"><label>Template PDF</label><select class="inp" name="TemplateID" data-in="fd">${tplOptions(x.TemplateID)}</select><div class="hint">Atur template di <a href="#" data-act="nav" data-nav="pengaturan">Pengaturan</a></div></div>
   </div>
   <div class="form-actions"><button class="btn btn-ghost" data-act="formCancel">Batal</button><button class="btn btn-pri" data-act="formNext1">Simpan & lanjut <i class="bi bi-arrow-right"></i></button></div>`;
 }
@@ -755,7 +770,7 @@ function formStep3(el) {
   const waktu = x.WaktuMulai ? x.WaktuMulai + (x.WaktuSelesai ? '–' + x.WaktuSelesai : '') : '-';
   el.innerHTML = `<div class="card card-pad"><h3 class="h3">Periksa sebelum finalisasi</h3>
     <dl class="kv"><div><dt>Bukti dukung</dt><dd>${esc(b ? b.Nama : '-')}</dd></div><div><dt>Tanggal · waktu · TW</dt><dd>${tgl(x.Tanggal)} · ${esc(waktu)} · TW ${esc(x.TW)}</dd></div>
-      ${x.Lokasi ? `<div><dt>Tempat</dt><dd>${esc(x.Lokasi)}</dd></div>` : ''}<div><dt>Uraian</dt><dd>${esc(x.Uraian)}</dd></div><div><dt>Realisasi</dt><dd>${esc(x.Realisasi)}</dd></div>${x.SumberData ? `<div><dt>Sumber data</dt><dd>${esc(x.SumberData)}</dd></div>` : ''}</dl>
+      ${x.Lokasi ? `<div><dt>Tempat</dt><dd>${esc(x.Lokasi)}</dd></div>` : ''}<div><dt>Uraian</dt><dd>${esc(x.Uraian)}</dd></div><div><dt>Realisasi</dt><dd>${esc(x.Realisasi)}</dd></div>${x.SumberData ? `<div><dt>Sumber data</dt><dd>${esc(x.SumberData)}</dd></div>` : ''}<div><dt>Template PDF</dt><dd>${esc(tplLabel(x.TemplateID))}</dd></div></dl>
     ${S.draft.photos.length ? `<div class="photos sm">${S.draft.photos.map(p => `<div class="ph"><img src="${p}" alt=""></div>`).join('')}</div>` : '<p class="hint">Tanpa foto dokumentasi.</p>'}
   </div>
   <div class="note mt"><i class="bi bi-folder2"></i><div>PDF disimpan di Drive KUA: <b>${esc(S.me.Nama)} › ${esc(th ? th.Tahun : '')} › ${esc(b ? b.Nama : '')} › TW ${esc(x.TW)}</b>. Proses ±10–30 detik.</div></div>
@@ -774,51 +789,110 @@ function renderRealisasi(sec) {
     </div>`).join('') : `<div class="card">${empty('bar-chart', 'Belum ada data realisasi', 'Tambahkan bukti dukung & target terlebih dahulu.', '<button class="btn btn-soft btn-sm" data-act="nav" data-nav="bd">Atur bukti dukung</button>')}</div>`}`;
 }
 
-// ── 13. Halaman: Laporan SKP (side-by-side copy) ────────────
+// ── 13. Halaman: Laporan SKP (isian e-Kinerja, klik = salin) ─
+// Isian e-Kinerja BKN per butiran:
+//   Edit Realisasi     → REALISASI, SUMBER DATA
+//   Tambah Bukti Dukung → NAMA BUKTI DUKUNG (= nama butiran), LINK (= folder butiran / folder TW)
+function skpPer() { return S.skpPer || twOf(today()); }
+function skpLinkMap() { const t = S.tahunId; if (!S.skpLinks[t]) S.skpLinks[t] = store.get('skpl_' + t, {}); return S.skpLinks[t]; }
+function skpNeedPids() {
+  const pids = [S.me.ID];
+  if (S.isAdmin && S.skpMode === 'gabung') {
+    S.lap.forEach(l => { if (l.TahunID === S.tahunId && l.Klaim === 'Y' && l.PegawaiID !== S.me.ID && !pids.includes(l.PegawaiID)) pids.push(l.PegawaiID); });
+  }
+  return pids;
+}
+function loadSkpLinks(force) {
+  const tid = S.tahunId, pids = skpNeedPids(), key = tid + '|' + pids.join(',');
+  if (!tid || (!force && S.skpLoaded[key])) return;
+  S.skpLoaded[key] = 'loading';
+  api('skpLinks', { tahunId: tid, pids: pids }).then(m => {
+    const cur = Object.assign(skpLinkMap(), m);
+    S.skpLinks[tid] = cur; store.set('skpl_' + tid, cur);
+    S.skpLoaded[key] = 'ok';
+    if (S.page === 'skp') renderPage();
+    if (force) toast('Link folder diperbarui.');
+  }).catch(e => { delete S.skpLoaded[key]; toast(e.message, 'bad'); });
+}
+function inPer(l) { const p = skpPer(); return p === 'T' || String(l.TW) === p; }
 function skpGroups() {
   const mine = S.me.ID;
   const done = S.lap.filter(l => l.TahunID === S.tahunId && isDone(l));
-  const groups = myBD().map(b => ({ id: b.ID, b, entries: done.filter(l => l.PegawaiID === mine && l.BuktiDukungID === b.ID) }));
+  const groups = myBD().map(b => ({ id: b.ID, b, own: done.filter(l => l.PegawaiID === mine && l.BuktiDukungID === b.ID), claim: [] }));
   if (S.isAdmin && S.skpMode === 'gabung') {
     const myIds = new Set(groups.map(g => g.id));
-    groups.forEach(g => { g.entries = g.entries.concat(done.filter(l => l.PegawaiID !== mine && l.Klaim === 'Y' && l.KlaimKe === g.id)); });
+    groups.forEach(g => { g.claim = done.filter(l => l.PegawaiID !== mine && l.Klaim === 'Y' && l.KlaimKe === g.id); });
     const un = done.filter(l => l.PegawaiID !== mine && l.Klaim === 'Y' && !myIds.has(l.KlaimKe));
-    if (un.length) groups.push({ id: '_un', b: { Nama: 'Klaim belum dipetakan ke RHK', Jenis: 'Klaim' }, entries: un });
+    if (un.length) groups.push({ id: '_un', b: { Nama: 'Klaim belum dipetakan ke RHK', Jenis: 'Klaim', Satuan: '' }, own: [], claim: un });
   }
-  groups.forEach(g => g.entries.sort((a, b) => (a.Tanggal || '').localeCompare(b.Tanggal || '')));
   return groups;
 }
 function renderSKP(sec) {
+  loadSkpLinks(false);
   const groups = skpGroups();
   const sel = S.open.skp && groups.find(g => g.id === S.open.skp) ? S.open.skp : null;
   if (!sel) S.open.skp = null;
   const cur = sel ? groups.find(g => g.id === sel) : (isWide() ? groups[0] : null);
+  const per = skpPer();
   sec.innerHTML = `
     ${S.isAdmin ? `<div class="seg mb">${[['saya', 'Milik saya'], ['gabung', 'Gabungan + klaim staf']].map(([v, l]) => `<button class="${S.skpMode === v ? 'on' : ''}" data-act="skpMode" data-v="${v}">${l}</button>`).join('')}</div>` : ''}
-    <div class="note mb"><i class="bi bi-layout-split"></i><div>Buka e-Kinerja di tab atau jendela lain, lalu salin isian dari sini satu per satu.</div></div>
+    <div class="note mb"><i class="bi bi-cursor"></i><div>Buka e-Kinerja di tab lain. <b>Klik isian</b> di sini untuk menyalin, lalu tempel ke kolom yang sama di e-Kinerja.</div></div>
+    <div class="row gap mb skp-per"><div class="chips m0">${chipSet('skpPer', [['T', 'Tahunan'], ['1', 'TW 1'], ['2', 'TW 2'], ['3', 'TW 3'], ['4', 'TW 4']], per)}</div>
+      <button class="icon-btn sm" data-act="skpReload" title="Muat ulang link folder" aria-label="Muat ulang link folder"><i class="bi bi-arrow-clockwise"></i></button></div>
     <div class="split ${sel ? 'show-detail' : ''}">
-      <div class="pane-list"><div class="list">${groups.length ? groups.map(g => `
+      <div class="pane-list"><div class="list">${groups.length ? groups.map(g => {
+        const n = g.own.filter(inPer).length + g.claim.filter(inPer).length;
+        return `
         <button class="item ${cur && cur.id === g.id ? 'on' : ''}" data-act="skpOpen" data-id="${g.id}">
           <span class="ic ${g.b.Jenis === 'Utama' ? 'brand' : g.b.Jenis === 'Klaim' ? 'warn' : 'info'}"><i class="bi bi-${g.id === '_un' ? 'flag' : 'bullseye'}"></i></span>
-          <span class="body"><span class="t">${esc(g.b.Nama)}</span><span class="m"><span>${esc(g.b.Jenis)}</span><span>${g.entries.length} bukti</span></span></span>
-          <i class="bi bi-chevron-right muted"></i></button>`).join('') : `<div class="card">${empty('bullseye', 'Belum ada bukti dukung', 'Tambahkan bukti dukung untuk tahun ini.')}</div>`}</div></div>
-      <div class="pane-detail">${cur ? skpDetail(cur) : '<div class="placeholder"><i class="bi bi-layout-split"></i><p>Pilih bukti dukung.</p></div>'}</div>
+          <span class="body"><span class="t">${esc(g.b.Nama)}</span><span class="m"><span>${esc(g.b.Jenis)}</span><span>${n} kegiatan</span></span></span>
+          <i class="bi bi-chevron-right muted"></i></button>`;
+      }).join('') : `<div class="card">${empty('bullseye', 'Belum ada bukti dukung', 'Tambahkan bukti dukung untuk tahun ini.')}</div>`}</div></div>
+      <div class="pane-detail">${cur ? skpDetail(cur) : '<div class="placeholder"><i class="bi bi-layout-split"></i><p>Pilih butiran SKP.</p></div>'}</div>
     </div>`;
 }
+function copyField(k, v, note) {
+  if (!v) return `<div class="cf cf-empty"><span class="cf-k">${k}</span><span class="cf-v muted">${esc(note || '-')}</span></div>`;
+  return `<button class="cf" data-act="copy" data-copy="${esc(v)}"><span class="cf-k">${k}</span><span class="cf-v">${esc(v)}</span><span class="cf-ic"><i class="bi bi-clipboard"></i> Salin</span></button>`;
+}
+function folderLink(bdId, per) {
+  const m = skpLinkMap()[bdId];
+  if (!m) return '';
+  return per === 'T' ? m.url : (m.tw && m.tw[per]) || '';
+}
 function skpDetail(g) {
-  const all = g.entries.map((l, i) => `${i + 1}. ${l.Uraian}${l.PegawaiID !== S.me.ID ? ' (' + ((pegById(l.PegawaiID) || {}).Nama || 'staf') + ')' : ''} — ${linkOf(l)}`).join('\n');
+  const per = skpPer(), perLbl = per === 'T' ? 'Tahun ' + tahunLabel() : 'TW ' + per + ' · ' + tahunLabel();
+  const own = g.own.filter(inPer), claim = g.claim.filter(inPer), all = own.concat(claim);
+  const satuan = g.b.Satuan || 'Kegiatan';
+  const realisasi = all.length ? all.length + ' ' + satuan : '';
+  const sumber = Array.from(new Set(all.map(l => String(l.SumberData || '').trim()).filter(Boolean))).join(', ');
+  const loading = Object.values(S.skpLoaded).includes('loading');
+  const blocks = [];
+  // 1. Folder milik sendiri (PDF dibuat/diunggah di aplikasi)
+  if (g.id !== '_un' && own.some(l => l.Sumber !== 'LINK')) {
+    blocks.push({ nama: g.b.Nama, link: folderLink(g.id, per), cap: own.filter(l => l.Sumber !== 'LINK').length + ' PDF di folder ' + (per === 'T' ? 'butiran' : 'TW ' + per) });
+  }
+  // 2. Link Drive yang ditempel sendiri
+  own.filter(l => l.Sumber === 'LINK').forEach(l => blocks.push({ nama: g.b.Nama, link: l.LinkUrl, cap: 'Link ditempel · ' + l.Uraian }));
+  // 3. Klaim staf: folder butiran staf
+  const byStaff = {};
+  claim.forEach(l => { const k = l.PegawaiID + '|' + l.BuktiDukungID; (byStaff[k] = byStaff[k] || []).push(l); });
+  Object.keys(byStaff).forEach(k => {
+    const ls = byStaff[k], sb = bdById(ls[0].BuktiDukungID) || { Nama: g.b.Nama }, p = pegById(ls[0].PegawaiID) || {};
+    if (ls.some(l => l.Sumber !== 'LINK')) blocks.push({ nama: sb.Nama, link: folderLink(sb.ID, per), cap: 'Klaim dari ' + (p.Nama || 'staf') + ' · ' + ls.filter(l => l.Sumber !== 'LINK').length + ' PDF' });
+    ls.filter(l => l.Sumber === 'LINK').forEach(l => blocks.push({ nama: sb.Nama, link: l.LinkUrl, cap: 'Klaim dari ' + (p.Nama || 'staf') + ' · link ditempel' }));
+  });
+  const noLink = loading ? 'Memuat link folder…' : 'Link folder belum tersedia — tekan ⟳ untuk memuat ulang';
   return `<div class="card card-pad"><span class="tag muted">${esc(g.b.Jenis)}</span><h3 class="h3 mt-s">${esc(g.b.Nama)}</h3>
-      <p class="muted small" style="margin:4px 0 10px">${g.entries.length} bukti dukung final · tahun ${esc(tahunLabel())}</p>
-      ${g.entries.length ? `<button class="copy-btn" data-act="copy" data-copy="${esc(all)}"><i class="bi bi-clipboard"></i><span>Salin semua tautan</span></button>` : ''}</div>
-    ${g.entries.length ? g.entries.map((l, i) => skpEntry(l, i)).join('') : `<div class="card mt-s">${empty('inbox', 'Belum ada bukti final', 'Finalisasi laporan atau tambahkan link untuk bukti dukung ini.')}</div>`}`;
-}
-function copyRow(k, v) {
-  return `<div class="copy-row"><div class="grow"><div class="k">${k}</div><div class="v">${v ? esc(v) : '<span class="muted">-</span>'}</div></div>${v ? `<button class="copy-btn" data-act="copy" data-copy="${esc(v)}"><i class="bi bi-clipboard"></i><span>Salin</span></button>` : ''}</div>`;
-}
-function skpEntry(l, i) {
-  const own = l.PegawaiID === S.me.ID, p = pegById(l.PegawaiID);
-  return `<div class="card card-pad mt-s"><div class="entry-h"><span class="num">${i + 1}</span><span class="muted small">${tgl(l.Tanggal, true)} · TW ${esc(l.TW)}${own ? '' : ` · <b>${esc(p ? p.Nama : 'Staf')}</b>`}</span></div>
-    ${copyRow('Keterangan', l.Uraian)}${copyRow('Realisasi', l.Realisasi)}${copyRow('Sumber data', l.SumberData)}${copyRow('Tautan bukti', linkOf(l))}</div>`;
+      <p class="muted small m0">${esc(perLbl)} · ${all.length} kegiatan final</p></div>
+    <div class="card card-pad mt-s ek"><div class="ek-h"><i class="bi bi-pencil-square"></i> Edit Realisasi</div>
+      ${copyField('REALISASI', realisasi, 'Belum ada kegiatan final')}${copyField('SUMBER DATA', sumber, 'Isi "Sumber data" pada catatan kegiatan')}</div>
+    <div class="card card-pad mt-s ek"><div class="ek-h"><i class="bi bi-plus-square"></i> Tambah Bukti Dukung ${blocks.length > 1 ? `<span class="tag muted">${blocks.length}</span>` : ''}</div>
+      ${blocks.length ? blocks.map((b, i) => `<div class="ek-b">${blocks.length > 1 ? `<div class="ek-n">${i + 1}. ${esc(b.cap)}</div>` : `<div class="ek-n">${esc(b.cap)}</div>`}
+        ${copyField('NAMA BUKTI DUKUNG', b.nama)}${copyField('BUKTI DUKUNG (LINK)', b.link, noLink)}</div>`).join('')
+      : `<p class="muted small m0">Belum ada bukti final pada periode ini. Finalisasi catatan kegiatan atau tempel link hasil kerja.</p>`}
+    </div>
+    ${all.length ? `<details class="more card card-pad mt-s"><summary><i class="bi bi-chevron-down"></i> Lihat ${all.length} kegiatan</summary>${all.slice().sort((a, b) => (a.Tanggal || '').localeCompare(b.Tanggal || '')).map(l => `<div class="mini-row"><span class="grow"><b>${tgl(l.Tanggal, true)}</b> · TW ${esc(l.TW)} · ${esc(l.Uraian)}${l.PegawaiID !== S.me.ID ? ` · <i>${esc((pegById(l.PegawaiID) || {}).Nama || 'staf')}</i>` : ''}</span></div>`).join('')}</details>` : ''}`;
 }
 
 // ── 14. Halaman: Bukti dukung & target ──────────────────────
@@ -834,20 +908,55 @@ function renderBD(sec) {
     }).join('')}</div>` : `<div class="card">${empty('bullseye', 'Belum ada bukti dukung', 'Tambahkan sesuai SKP Anda tahun ini.')}</div>`}`;
 }
 
-// ── 15. Halaman: Akun ───────────────────────────────────────
+// ── 15. Halaman: Pengaturan (akun saya + template + KUA) ───
 function mi(icon, title, sub, act, extra) {
   return `<button class="mi ${extra && extra.cls ? extra.cls : ''}" data-act="${act}" ${extra && extra.nav ? `data-nav="${extra.nav}"` : ''}><span class="mi-ic"><i class="bi bi-${icon}"></i></span><span class="grow"><b>${title}</b>${sub ? `<small>${sub}</small>` : ''}</span><i class="bi bi-chevron-right muted"></i></button>`;
 }
-function renderAkun(sec) {
+function renderPengaturan(sec) {
   const m = S.me;
-  const dark = document.documentElement.dataset.theme === 'dark';
-  const navs = ['realisasi', 'bd'].concat(S.isAdmin ? ['skp', 'pegawai', 'kua', 'log'] : []);
+  const navs = ['realisasi', 'bd'].concat(S.isAdmin ? ['skp', 'pegawai'] : []);
   sec.innerHTML = `<div class="card card-pad profile"><span class="avatar xl">${esc(initials(m.Nama))}</span><div class="grow"><h3 class="h3">${esc(m.Nama)}</h3><div class="muted small">${esc(m.Jabatan || '-')}</div><div class="muted small">NIP ${esc(m.NIP || '-')}</div><span class="tag ${S.isAdmin ? 'brand' : 'info'} mt-s">${S.isAdmin ? 'Kepala KUA · Admin' : 'ASN'} · KUA ${esc(S.kua.nama || '')}</span></div></div>
+    <div class="menu card mt only-mobile"><div class="mi"><span class="mi-ic"><i class="bi bi-moon-stars"></i></span><span class="grow"><b>Mode gelap</b></span><label class="sw"><input type="checkbox" data-ch="theme" ${isDark() ? 'checked' : ''}><span></span></label></div>
+      ${mi('box-arrow-right', 'Keluar', 'Kembali ke pilihan nama', 'logout')}</div>
     <div class="menu card mt only-mobile">${navs.map(id => { const n = navDef(id); return mi(n.icon, n.label, '', 'nav', { nav: id }); }).join('')}</div>
-    <div class="menu card mt">${mi('person-gear', 'Ubah profil', 'Nama, NIP, jabatan', 'editProfil')}${mi('key', 'Ganti PIN', 'PIN 6 digit untuk masuk', 'gantiPin')}${mi('file-earmark-zip', 'Cadangkan data saya', 'Unduh folder Anda dalam bentuk ZIP', 'backup')}</div>
-    <div class="menu card mt"><div class="mi"><span class="mi-ic"><i class="bi bi-moon-stars"></i></span><span class="grow"><b>Mode gelap</b></span><label class="sw"><input type="checkbox" data-ch="theme" ${dark ? 'checked' : ''}><span></span></label></div>
-      ${mi('box-arrow-right', 'Keluar', 'Kembali ke pilihan nama', 'logout')}${mi('phone', 'Lupakan perangkat ini', 'Keluar juga dari akun KUA', 'forget', { cls: 'mi-danger' })}</div>
+    <div class="sec-title">Akun saya</div>
+    <div class="menu card">${mi('person-gear', 'Ubah profil', 'Nama, NIP, jabatan', 'editProfil')}${mi('key', 'Ganti PIN', 'PIN 6 digit untuk masuk', 'gantiPin')}${mi('file-earmark-zip', 'Cadangkan data saya', 'Unduh folder hasil kerja per tahun (ZIP)', 'backup')}</div>
+    ${tplSectionHtml()}
+    ${S.isAdmin ? `<div class="sec-title">Pengaturan KUA</div>${kuaHtml()}` : ''}
     <p class="foot-brand">LABUKU One v${esc(BOOT.version || '')} · by Ahzani Labs</p>`;
+}
+
+// Template PDF: 3 slot KUA (diatur Kepala KUA, berlaku semua) + 3 slot pribadi
+const tplOf = (scope, slot) => (S.tpl || []).find(t => t.Pemilik === scope && String(t.Slot) === String(slot));
+function tplLabel(id) {
+  const t = (S.tpl || []).find(x => x.ID === id);
+  return t ? (t.Pemilik === 'KUA' ? 'KUA · ' : 'Pribadi · ') + t.Nama : 'Bawaan LABUKU';
+}
+function tplOptions(sel) {
+  const list = (S.tpl || []).slice().sort((a, b) => (a.Pemilik === b.Pemilik ? String(a.Slot).localeCompare(String(b.Slot)) : a.Pemilik === 'KUA' ? -1 : 1));
+  return `<option value="">Bawaan LABUKU</option>` + list.map(t => `<option value="${t.ID}" ${t.ID === sel ? 'selected' : ''}>${t.Pemilik === 'KUA' ? 'KUA' : 'Pribadi'} · ${esc(t.Nama)}</option>`).join('');
+}
+function tplSlotHtml(scope, slot, editable) {
+  const t = tplOf(scope, slot);
+  if (!t) return `<div class="item tpl-slot"><span class="ic muted-bg"><i class="bi bi-file-earmark-plus"></i></span><span class="body"><span class="t">Slot ${slot} · kosong</span><span class="m">${editable ? 'Unggah .docx atau tempel link Google Doc' : 'Belum diisi Kepala KUA'}</span></span>
+    ${editable ? `<button class="btn btn-soft btn-sm" data-act="tplEdit" data-scope="${scope}" data-slot="${slot}"><i class="bi bi-upload"></i> Isi</button>` : ''}</div>`;
+  const f = String(t.Fields || '').split(',').filter(Boolean);
+  return `<div class="item tpl-slot"><span class="ic ${f.length ? 'ok' : 'warn'}"><i class="bi bi-file-earmark-text"></i></span><span class="body"><span class="t">${esc(t.Nama)}</span>
+    <span class="m"><span>Slot ${slot}</span>${t.Sumber ? `<span class="trunc">${esc(t.Sumber)}</span>` : ''}</span>
+    <span class="m">${f.length ? `<span class="tag ok">${f.length} field terdeteksi</span>` : '<span class="tag warn">Belum ada field {{…}}</span>'}</span></span>
+    ${editable ? `<button class="icon-btn sm" data-act="tplEdit" data-scope="${scope}" data-slot="${slot}" title="Ganti" aria-label="Ganti"><i class="bi bi-arrow-repeat"></i></button><button class="icon-btn sm" data-act="tplDel" data-id="${t.ID}" title="Hapus" aria-label="Hapus"><i class="bi bi-trash3"></i></button>` : ''}</div>`;
+}
+function tplSectionHtml() {
+  const fields = S.tplFields || [];
+  return `<div class="sec-title">Template PDF</div>
+    <div class="card card-pad"><p class="muted small m0">Buat dokumen di Google Docs atau Word, lalu tempel field di posisi yang diinginkan. Saat finalisasi, field otomatis diganti data kegiatan. Unggah file <b>.docx</b>, atau tempel link Google Doc.</p>
+      <div class="btn-row mt-s"><button class="btn btn-ghost btn-sm" data-act="tplSample"><i class="bi bi-file-earmark-richtext"></i> Contoh template</button></div>
+      <details class="more"><summary><i class="bi bi-chevron-down"></i> Daftar field — klik untuk menyalin (${fields.length})</summary>
+        <div class="tok-grid">${fields.map(([k, d]) => `<button class="tok" data-act="copy" data-copy="{{${k}}}"><code>{{${k}}}</code><small>${esc(d)}</small></button>`).join('')}</div></details></div>
+    <div class="list-meta mt">Template KUA — berlaku untuk semua pegawai${S.isAdmin ? '' : ' (diatur Kepala KUA)'}</div>
+    <div class="list">${[1, 2, 3].map(n => tplSlotHtml('KUA', n, S.isAdmin)).join('')}</div>
+    <div class="list-meta mt">Template pribadi</div>
+    <div class="list">${[1, 2, 3].map(n => tplSlotHtml('ME', n, true)).join('')}</div>`;
 }
 
 // ── 16. Halaman Kepala KUA: Tim & Klaim ─────────────────────
@@ -919,11 +1028,11 @@ function renderPegawai(sec) {
       <button class="icon-btn" data-act="pegEdit" data-id="${p.ID}" aria-label="Ubah"><i class="bi bi-pencil"></i></button></div>`).join('')}</div>`;
 }
 
-// ── 18. Halaman Kepala KUA: Pengaturan KUA ──────────────────
-function renderKua(sec) {
+// ── 18. Bagian Kepala KUA di halaman Pengaturan ───────────
+function kuaHtml() {
   const k = S.kua;
   const years = S.tahun.slice().sort((a, b) => b.Tahun.localeCompare(a.Tahun));
-  sec.innerHTML = `<div class="grid g-md-2">
+  return `<div class="grid g-md-2">
     <div class="card card-pad"><h3 class="h3">Identitas KUA</h3><p class="muted small">Tampil pada kop PDF laporan.</p>
       <form id="fKuaId">${fld('Nama KUA (kecamatan)', 'namaKua', { req: true, value: k.nama })}${fld('Kabupaten / Kota', 'kabupaten', { value: k.kabupaten })}${fld('Alamat kantor', 'alamat', { value: k.alamat })}${fld('Kota tanda tangan', 'kota', { value: k.kota, ph: 'Kosongkan = nama kabupaten' })}</form>
       <button class="btn btn-pri btn-block" data-act="kuaSave">Simpan identitas</button></div>
@@ -937,16 +1046,6 @@ function renderKua(sec) {
     <div class="card card-pad"><h3 class="h3">Penyimpanan</h3><p class="muted small">Semua file tersimpan di Google Drive akun KUA, folder “LABUKU One by Ahzani Labs”. Buka saat login dengan akun Google KUA.</p>
       <div class="btn-row"><a class="btn btn-ghost btn-sm" href="${esc(k.rootUrl || '#')}" target="_blank" rel="noopener"><i class="bi bi-folder2-open"></i> Folder Drive</a><a class="btn btn-ghost btn-sm" href="${esc(k.dbUrl || '#')}" target="_blank" rel="noopener"><i class="bi bi-table"></i> Database</a></div></div>
   </div>`;
-}
-
-// ── 19. Halaman Kepala KUA: Log ─────────────────────────────
-function renderLog(sec) {
-  sec.innerHTML = '<div class="pad"><div class="spinner"></div></div>';
-  api('getLog').then(list => {
-    if (S.page !== 'log') return;
-    sec.innerHTML = list.length ? `<div class="list">${list.map(l => `<div class="item"><span class="ic ${/HAPUS|BATAL/.test(l.Aksi) ? 'bad' : /KLAIM|FINAL/.test(l.Aksi) ? 'ok' : 'info'}"><i class="bi bi-activity"></i></span>
-      <span class="body"><span class="t">${esc(l.Nama)} <span class="tag muted">${esc(l.Aksi)}</span></span>${l.Detail ? `<span class="m">${esc(l.Detail)}</span>` : ''}<span class="m">${waktuLog(l.Waktu)}</span></span></div>`).join('')}</div>` : `<div class="card">${empty('clock-history', 'Belum ada aktivitas', '')}</div>`;
-  }).catch(e => { sec.innerHTML = `<div class="card">${empty('exclamation-circle', 'Gagal memuat log', e.message)}</div>`; });
 }
 
 // ── 20. Sheet forms ─────────────────────────────────────────
@@ -1027,7 +1126,7 @@ const ACT = {
   newMenu: () => {
     if (!myBD().length) return needBD();
     openSheet({
-      title: 'Tambah hasil kerja',
+      title: 'Catat hasil kerja',
       body: `<div class="opt-list">
         <button class="opt" data-act="newLap"><span class="ic brand"><i class="bi bi-journal-plus"></i></span><span><b>Laporan kegiatan</b><small>Isi uraian & foto, PDF dibuat otomatis</small></span><i class="bi bi-chevron-right muted"></i></button>
         <button class="opt" data-act="newLink"><span class="ic info"><i class="bi bi-link-45deg"></i></span><span><b>Tempel link Drive</b><small>Hasil kerja yang dibuat di luar aplikasi</small></span><i class="bi bi-chevron-right muted"></i></button>
@@ -1149,6 +1248,8 @@ const ACT = {
 
   // SKP
   skpMode: ds => { S.skpMode = ds.v; S.open.skp = null; renderPage(); },
+  skpPer: ds => { S.skpPer = ds.v; renderPage(); },
+  skpReload: () => loadSkpLinks(true),
   skpOpen: ds => { S.open.skp = ds.id; renderPage(); if (!isWide()) window.scrollTo(0, 0); },
 
   // Bukti dukung
@@ -1221,22 +1322,107 @@ const ACT = {
       closeSheet(); toast('PIN berhasil diganti.');
     } catch (e) { toast(e.message, 'bad'); btnLoad(btn, false); }
   },
-  backup: async ds => {
-    const pid = ds.pid || null;
-    const who = pid ? (pegById(pid) || {}).Nama : 'Anda';
-    if (!await confirmBox(`Siapkan ZIP berisi folder ${who} (PDF bukti dukung + daftar laporan)?`, 'Siapkan ZIP')) return;
-    busy(true, 'Menyiapkan ZIP…');
+  backup: ds => {
+    const pid = ds.pid || '';
+    const who = pid ? (pegById(pid) || {}).Nama : S.me.Nama;
+    const ys = S.tahun.slice().sort((x, y) => y.Tahun.localeCompare(x.Tahun));
+    openSheet({
+      title: 'Cadangkan data',
+      body: `<p class="muted" style="margin-top:0">Isi ZIP sama persis dengan folder di Drive KUA: <b>${esc(who)} › DATABASE LPJ › Tahun › Butiran › TW</b>, lengkap dengan semua PDF.</p>
+        <div class="field"><label>Tahun</label><select class="inp" id="bkTahun">${ys.map(t => `<option value="${esc(t.Tahun)}" ${t.ID === S.tahunId ? 'selected' : ''}>${esc(t.Tahun)}</option>`).join('')}</select></div>
+        <p class="hint">Jika ukurannya besar, ZIP otomatis dipecah menjadi beberapa bagian. Ekstrak semua bagian ke folder yang sama agar susunannya kembali utuh.</p>`,
+      foot: `<button class="btn btn-ghost" data-act="closeSheet">Batal</button><button class="btn btn-pri" data-act="backupGo" data-pid="${esc(pid)}"><i class="bi bi-file-earmark-zip"></i> Siapkan ZIP</button>`
+    });
+  },
+  backupGo: async ds => {
+    const tahun = ($('#bkTahun') || {}).value;
+    closeSheet(true);
+    busy(true, 'Menyiapkan ZIP tahun ' + tahun + '…');
     try {
-      const r = await api('backup', pid ? { pid } : {});
+      const r = await api('backup', ds.pid ? { pid: ds.pid, tahun: tahun } : { tahun: tahun });
       busy(false);
+      const multi = r.parts.length > 1;
       openSheet({
         title: 'ZIP siap diunduh',
-        body: `<p class="muted">${esc(r.name)} · ${(r.size / 1048576).toFixed(1)} MB · ${r.files} file</p><a class="btn btn-pri btn-block" href="${esc(r.url)}" target="_blank" rel="noopener"><i class="bi bi-download"></i> Unduh ZIP</a><p class="hint">Tautan otomatis dihapus ±2 jam setelah dibuat.</p>`
+        body: `<p class="muted" style="margin-top:0">Tahun ${esc(r.tahun)} · ${r.files} file${multi ? ' · ' + r.parts.length + ' bagian' : ''}</p>
+          <div class="list">${r.parts.map((x, i) => `<a class="item" href="${esc(x.url)}" target="_blank" rel="noopener"><span class="ic brand"><i class="bi bi-file-earmark-zip"></i></span><span class="body"><span class="t">${multi ? 'Bagian ' + (i + 1) : 'Unduh ZIP'}</span><span class="m"><span>${(x.size / 1048576).toFixed(1)} MB</span><span>${x.files} file</span></span></span><i class="bi bi-download"></i></a>`).join('')}</div>
+          <p class="hint">${multi ? 'Unduh semua bagian, lalu ekstrak ke folder yang sama. ' : ''}Tautan otomatis dihapus ±2 jam setelah dibuat.</p>`
       });
     } catch (e) { busy(false); toast(e.message, 'bad'); }
   },
   logout: () => logout(false),
-  forget: async () => { if (await confirmBox('Keluar dan lupakan akun KUA di perangkat ini?', 'Ya, lupakan', true)) logout(true); },
+  toggleTheme: (ds, el) => {
+    applyTheme(isDark() ? 'light' : 'dark');
+    el.outerHTML = themeBtn();
+    const sw = $('#pg-pengaturan [data-ch=theme]'); if (sw) sw.checked = isDark();
+  },
+
+  // Template PDF
+  tplEdit: ds => {
+    const t = tplOf(ds.scope, ds.slot);
+    let file = null;
+    openSheet({
+      title: (t ? 'Ganti' : 'Isi') + ' template ' + (ds.scope === 'KUA' ? 'KUA' : 'pribadi') + ' · slot ' + ds.slot,
+      body: `<form id="fTpl" autocomplete="off">${fld('Nama template', 'nama', { value: t ? t.Nama : '', ph: 'Mis. Laporan bimwin' })}
+        <label class="drop" id="tplDrop"><input type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden id="tplFile">
+          <i class="bi bi-cloud-arrow-up"></i><b id="tplFileName">Tarik file .docx ke sini</b><small>atau klik untuk memilih file (maks. 10 MB)</small></label>
+        <div class="or"><span>atau</span></div>
+        ${fld('Link Google Doc', 'link', { type: 'url', ph: 'https:\/\/docs.google.com/document/d/…', hint: 'Dokumen harus bisa dibuka akun KUA: dibagikan “Siapa saja yang memiliki link”. Jika dokumen privat, unduh sebagai Word (.docx) lalu unggah filenya.' })}</form>`,
+      foot: `<button class="btn btn-ghost" data-act="closeSheet">Batal</button><button class="btn btn-pri" id="tplSaveBtn"><i class="bi bi-check2"></i> Simpan template</button>`,
+      onOpen: sh => {
+        const drop = sh.querySelector('#tplDrop'), inp = sh.querySelector('#tplFile');
+        const pick = f => {
+          if (!f) return;
+          if (!/\.docx$/i.test(f.name)) return toast('File harus .docx (Word).', 'warn');
+          if (f.size > 10 * 1024 * 1024) return toast('Ukuran maksimal 10 MB.', 'warn');
+          file = f; sh.querySelector('#tplFileName').textContent = f.name; drop.classList.add('on');
+          const nm = sh.querySelector('[name=nama]'); if (!nm.value) nm.value = f.name.replace(/\.docx$/i, '');
+        };
+        inp.addEventListener('change', () => pick(inp.files[0]));
+        ['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('hover'); }));
+        ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('hover'); }));
+        drop.addEventListener('drop', e => pick(e.dataTransfer.files[0]));
+        sh.querySelector('#tplSaveBtn').onclick = async () => {
+          const f = Object.fromEntries(new FormData(sh.querySelector('#fTpl')));
+          const link = String(f.link || '').trim();
+          if (!file && !link) return toast('Unggah file .docx atau tempel link Google Doc.', 'warn');
+          const btn = sh.querySelector('#tplSaveBtn');
+          btnLoad(btn, true, 'Memproses template…');
+          try {
+            const payload = { scope: ds.scope, slot: ds.slot, nama: f.nama };
+            if (file) { payload.b64 = await readB64(file); payload.fileName = file.name; } else payload.link = link;
+            const r = await api('saveTemplate', payload);
+            S.tpl = (S.tpl || []).filter(x => !(x.Pemilik === r.Pemilik && String(x.Slot) === String(r.Slot))).concat([r]);
+            persist(); closeSheet(); renderPage();
+            const n = String(r.Fields || '').split(',').filter(Boolean).length;
+            toast(n ? 'Template tersimpan · ' + n + ' field terdeteksi.' : 'Template tersimpan, tapi belum ada field {{…}} di dalamnya.', n ? '' : 'warn');
+          } catch (e) { toast(e.message, 'bad'); btnLoad(btn, false); }
+        };
+      }
+    });
+  },
+  tplDel: async ds => {
+    const t = (S.tpl || []).find(x => x.ID === ds.id);
+    if (!t || !await confirmBox('Hapus template "' + t.Nama + '"? Catatan yang memakai template ini kembali ke template bawaan.', 'Hapus', true)) return;
+    try {
+      await api('deleteTemplate', { id: t.ID });
+      S.tpl = S.tpl.filter(x => x.ID !== t.ID);
+      S.lap.forEach(l => { if (l.TemplateID === t.ID) l.TemplateID = ''; });
+      persist(); renderPage(); toast('Template dihapus.');
+    } catch (e) { toast(e.message, 'bad'); }
+  },
+  tplSample: async () => {
+    busy(true, 'Menyiapkan contoh…');
+    try {
+      const r = await api('templateContoh');
+      busy(false);
+      openSheet({
+        title: 'Contoh template',
+        body: `<p class="muted" style="margin-top:0">Contoh berisi semua field. Buat salinan ke Google Drive Anda atau unduh sebagai Word, ubah tata letaknya, lalu unggah kembali ke slot template.</p>
+          <div class="btn-row"><a class="btn btn-pri" href="${esc(r.copyUrl)}" target="_blank" rel="noopener"><i class="bi bi-files"></i> Buat salinan di Google Docs</a><a class="btn btn-ghost" href="${esc(r.docxUrl)}" target="_blank" rel="noopener"><i class="bi bi-download"></i> Unduh .docx</a></div>`
+      });
+    } catch (e) { busy(false); toast(e.message, 'bad'); }
+  },
 
   // Tim & klaim
   timOpen: ds => { S.open.tim = ds.id; renderPage(); if (!isWide()) window.scrollTo(0, 0); },
@@ -1292,7 +1478,7 @@ const ACT = {
     try {
       const r = await api('saveKua', d);
       S.kua = Object.assign({}, S.kua, r.kua); BOOT.namaKua = S.kua.nama;
-      persist(); buildNav(); go('kua'); toast('Identitas KUA disimpan.');
+      persist(); buildNav(); go('pengaturan'); toast('Identitas KUA disimpan.');
     } catch (e) { toast(e.message, 'bad'); btnLoad(btn, false); }
   },
   kuaAcc: async (ds, btn) => {
@@ -1308,7 +1494,7 @@ const ACT = {
       S.kua = Object.assign({}, S.kua, r.kua);
       if (r.kuaToken) { S.kuaToken = r.kuaToken; store.set('kua', r.kuaToken); }
       if (r.token) { S.token = r.token; store.set('sess', r.token); }
-      persist(); go('kua'); toast('Akun KUA diperbarui.');
+      persist(); go('pengaturan'); toast('Akun KUA diperbarui.');
     } catch (e) { toast(e.message, 'bad'); btnLoad(btn, false); }
   },
   tahunAdd: () => openSheet({
@@ -1336,7 +1522,6 @@ const ACT = {
     try { S.tahun = await api('deleteTahun', { id: ds.id }); persist(); renderPage(); toast('Tahun dihapus.'); }
     catch (e) { toast(e.message, 'bad'); }
   },
-  logRefresh: () => renderPage()
 };
 
 const IN = {
@@ -1345,6 +1530,7 @@ const IN = {
   fd: el => {
     if (!S.draft) return;
     S.draft.data[el.name] = el.value;
+    if (el.name === 'TemplateID') store.set('lastTpl', el.value);
     if (el.name === 'Tanggal' && el.value) {
       S.draft.data.TW = twOf(el.value);
       $$('#segTw button').forEach(b => b.classList.toggle('on', b.dataset.v === S.draft.data.TW));
@@ -1355,7 +1541,7 @@ const IN = {
 function saveFormDraft() { if (S.draft && !S.draft.isEdit) store.set('formDraft', S.draft.data); }
 
 const CH = {
-  theme: el => applyTheme(el.checked ? 'dark' : 'light'),
+  theme: el => { applyTheme(el.checked ? 'dark' : 'light'); const b = $('#nav-side [data-act=toggleTheme]'); if (b) b.outerHTML = themeBtn(); },
   phAdd: async el => {
     const room = 4 - S.draft.photos.length;
     const files = Array.from(el.files || []).slice(0, room);

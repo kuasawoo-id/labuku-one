@@ -463,3 +463,67 @@ button.mi:hover{background:var(--surface-2)}
 
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 @media print{#nav-side,#nav-bottom,.appbar,#toasts{display:none!important}}
+
+/* ============================================================
+   v2.2.0 — tambahan: isian e-Kinerja klik-salin, template, sidebar
+   ============================================================ */
+/* Isian klik-salin (meniru kolom e-Kinerja) */
+.ek-h{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text-2);margin-bottom:10px}
+.ek-h .tag{margin-left:auto}
+.ek-b+.ek-b{margin-top:14px;padding-top:14px;border-top:1px dashed var(--line)}
+.ek-n{font-size:12px;color:var(--text-3);margin:0 0 6px 2px}
+.cf{display:grid;grid-template-columns:1fr auto;grid-template-areas:"k ic" "v v";align-items:center;gap:4px 10px;width:100%;text-align:left;
+  padding:10px 12px;margin-top:8px;border:1.5px solid var(--line);border-radius:12px;background:var(--surface);transition:border-color .15s,background .15s,box-shadow .15s}
+.cf:first-of-type{margin-top:0}
+button.cf:hover{border-color:var(--brand);background:var(--brand-50)}
+button.cf:active{transform:scale(.995)}
+.cf-k{grid-area:k;font-size:11px;font-weight:800;letter-spacing:.05em;color:var(--info)}
+.cf-v{grid-area:v;font-size:14.5px;font-weight:600;word-break:break-word;line-height:1.4}
+.cf-ic{grid-area:ic;display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:700;color:var(--brand-600);white-space:nowrap}
+.cf.done{border-color:var(--ok);background:var(--ok-50);box-shadow:0 0 0 3px var(--ok-50)}
+.cf.done .cf-ic{color:var(--ok)}
+.cf-empty{border-style:dashed;background:var(--surface-2)}
+.cf-empty .cf-v{font-weight:500;font-size:13px}
+.skp-per{justify-content:space-between}
+.skp-per .chips{margin:0;flex:1;min-width:0}
+.skp-per .icon-btn{flex-shrink:0}
+
+/* Daftar field template */
+.tok-grid{display:grid;grid-template-columns:1fr;gap:6px;margin-top:10px}
+.tok{display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface);text-align:left}
+.tok:hover{border-color:var(--brand);background:var(--brand-50)}
+.tok code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;font-weight:700;color:var(--brand-600)}
+.tok small{font-size:11.5px;color:var(--text-2)}
+.tok.done{border-color:var(--ok);background:var(--ok-50)}
+.tpl-slot{align-items:center}
+.tpl-slot .trunc{max-width:220px}
+.drop{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:22px 14px;border:2px dashed var(--line);border-radius:14px;
+  text-align:center;cursor:pointer;color:var(--text-2);transition:.15s}
+.drop i{font-size:28px;color:var(--brand-600)}
+.drop b{color:var(--text);font-size:14px}
+.drop small{font-size:12px}
+.drop.hover,.drop:hover{border-color:var(--brand);background:var(--brand-50)}
+.drop.on{border-style:solid;border-color:var(--ok);background:var(--ok-50)}
+.or{display:flex;align-items:center;gap:10px;margin:14px 0;color:var(--text-3);font-size:12px}
+.or::before,.or::after{content:'';flex:1;height:1px;background:var(--line)}
+a.item{color:inherit}
+
+/* Sidebar: mode gelap & keluar di bawah nama */
+.side-foot{display:none}
+@media (min-width:768px){
+  .side-foot{display:flex;flex-direction:column;gap:4px;border-top:1px solid var(--line);padding-top:8px;margin-top:6px}
+  .side-acts{display:flex;flex-direction:column;gap:2px}
+  .side-act{display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 4px;border:none;border-radius:12px;background:none;color:var(--text-2);font-size:10px;font-weight:700}
+  .side-act i{font-size:17px}
+  .side-act span{display:none}
+  .side-act:hover{background:var(--surface-2);color:var(--text)}
+  .side-act[data-act=logout]:hover{color:var(--bad);background:var(--bad-50)}
+  .tok-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (min-width:1180px){
+  .side-acts{flex-direction:row;gap:6px;padding:0 4px}
+  .side-act{flex:1;flex-direction:row;justify-content:center;gap:6px;padding:8px;font-size:12.5px;border:1px solid var(--line)}
+  .side-act i{font-size:15px}
+  .side-act span{display:inline}
+  .tok-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+}

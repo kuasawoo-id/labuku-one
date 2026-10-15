@@ -63,7 +63,7 @@ github.com → **+** → **New repository**:
 
 ### 4. Ekstrak ZIP dan isi alamat backend
 1. Ekstrak `labuku-one-v2.1.0.zip`. Hasilnya folder **`labuku-one-v2.1.0`**.
-2. Buka `labuku-one-v2.1.0\js\config.js` dengan Notepad. Ganti `TEMPEL_URL_EXEC_DI_SINI` dengan URL `/exec` dari Bagian B langkah 4:
+2. Buka `js\config.js` dengan Notepad. Ganti nilai `GAS_URL` dengan URL `/exec` milik KUA Anda dari Bagian B langkah 4:
    ```js
    const GAS_URL = 'https://script.google.com/macros/s/AKfy.../exec';
    ```
